@@ -19,6 +19,13 @@ data Player = Player Name Score
                 deriving (Show, Read)
 
 
+getString :: String -> IO String
+getString str = do
+                  putStr str
+                  answer <- getLine
+                  return answer
+
+
 -- Start the program
 start :: IO()
 start = do
@@ -59,6 +66,7 @@ menu myData = do
 
 
 executeOpt :: Players -> Char -> IO Players
+executeOpt myData '1' = registerPlayer myData
 executeOpt myData '0' = do
                     putStrLn "Exiting..."
                     return myData
@@ -67,3 +75,28 @@ executeOpt myData _ = do
                         putStr "Invalid option. Press <enter> to continue..."
                         getChar
                         menu myData
+
+
+registerPlayer :: Players -> IO Players
+registerPlayer myData = do
+                        name <- getString "\nType in a user name: "
+                        if (playerExists myData name) then do
+                          putStrLn "Name already taken, choose another one!"
+                          putStr "Press <enter> to continue... "
+                          getChar
+                          menu myData
+                        else do
+                          arq <- openFile "data.txt" WriteMode
+                          hPutStrLn arq (show ((Player name 0):myData))
+                          hClose arq
+                          putStrLn ("\nUser " ++ name ++ " successfully registered.")
+                          putStr "Press <enter> to continue... "
+                          getChar
+                          menu ((Player name 0):myData)
+
+playerExists :: Players -> String -> Bool
+playerExists [] _ = False
+playerExists ((Player n s):xs) name | (n == name) = True
+                                    | otherwise = playerExists xs name
+
+
