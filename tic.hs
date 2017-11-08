@@ -18,6 +18,7 @@ type Table = [Char]
 data Player = Player Name Score
                 deriving (Show, Read)
 
+initialBoard = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
 getString :: String -> IO String
 getString str = do
@@ -67,6 +68,7 @@ menu myData = do
 
 executeOpt :: Players -> Char -> IO Players
 executeOpt myData '1' = registerPlayer myData
+executeOpt myData '2' = prepareGame myData
 executeOpt myData '0' = do
                     putStrLn "Exiting..."
                     return myData
@@ -100,3 +102,50 @@ playerExists ((Player n s):xs) name | (n == name) = True
                                     | otherwise = playerExists xs name
 
 
+-- prepare the inital data for the game
+prepareGame :: Players -> IO Players
+prepareGame myData = do
+                      p1 <- getString "\nType the name of the first player: "
+                      -- test if given name corresponds to a registered user
+                      if not (playerExists myData p1) then do
+                        putStrLn "\nThis player doesn't exist, bitch!"
+                        putStr "Press <enter> key to continue... "
+                        getChar
+                        menu myData
+                      else do
+                        p2 <- getString "\nType the name of the second player: "
+                        if not (playerExists myData p2) then do
+                          putStrLn "\nThis player doesn't exist, bitch!"
+                          putStr "Press <enter> key to continue... "
+                          getChar
+                          menu myData
+                        else do
+                          -- alright, both players correctly given
+                          newGame myData p1 p2
+
+-- Starts a new game
+newGame :: Players -> Name -> Name -> IO Players
+newGame myData p1 p2 = do
+                        putStrLn ("\nStarting game: \"" ++ p1 ++ " vs " ++ p2 ++ " ...")
+                        putStrLn "Squares with no numbers are not marked"
+                        {-
+                          This:
+                           ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+                          Iis the same as:
+                            1 | 2 | 3
+                            ---------
+                            4 | 5 | 6
+                            ---------
+                            7 | 8 | 9
+                         -}
+                        putStrLn ("Player " ++ p1 ++ " will be the \'X\', player " ++ p2 ++
+                                  " will the the \'O\'. Go!")
+                        -- turn 0 -> player's 1 turn
+                        -- turn 1 -> player's 2 turn
+                        putStr "Press <enter> key to continue... "
+                        getChar
+                        runGame myData initialBoard p1 p2 0
+
+runGame :: Players -> Table -> Name -> Name -> Int -> IO Players
+runGame myData board p1 p2 turn = menu myData
