@@ -8,6 +8,7 @@ import System.IO.Error
 import System.IO
 import System.Process
 import Data.List
+import Data.Function
 
 -- Definition of my data types
 type Players = [Player] -- all registered users
@@ -70,6 +71,16 @@ menu myData = do
 executeOpt :: Players -> Char -> IO Players
 executeOpt myData '1' = registerPlayer myData
 executeOpt myData '2' = prepareGame myData
+executeOpt myData '3' = do
+                          putStrLn "Ranking:"
+                          if (null myData) then do
+                            putStrLn "No records to show!"
+                          else do
+                            showRanking (reverse (sortData myData))
+                          putStrLn "Press <enter> to return to the menu..."
+                          getChar
+                          menu myData
+
 executeOpt myData '0' = do
                     putStrLn "Exiting..."
                     return myData
@@ -286,3 +297,19 @@ updateScore ((Player name score): xs) winner
   | (name == winner) = [(Player name (score + 1))] ++ xs
   | otherwise = (Player name score):(updateScore xs winner)
 
+
+showRanking :: Players -> IO ()
+showRanking [] = return ()
+showRanking (x:xs) = do
+                      putStrLn ((getName x) ++ "'s score is: " ++ (show (getScore x)))
+                      showRanking xs
+
+
+getName :: Player -> Name
+getName (Player name _) = name
+
+getScore :: Player -> Score
+getScore (Player _ score) = score
+
+sortData :: Players -> Players
+sortData players = sortBy (compare `on` getScore) players
