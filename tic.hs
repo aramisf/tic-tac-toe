@@ -7,6 +7,7 @@ import Control.Exception
 import System.IO.Error
 import System.IO
 import System.Process
+import Data.List
 
 -- Definition of my data types
 type Players = [Player] -- all registered users
@@ -126,8 +127,10 @@ prepareGame myData = do
 -- Starts a new game
 newGame :: Players -> Name -> Name -> IO Players
 newGame myData p1 p2 = do
-                        putStrLn ("\nStarting game: \"" ++ p1 ++ " vs " ++ p2 ++ " ...")
+                        putStrLn ("\nStarting game: \"" ++ p1 ++ " vs " ++ p2 ++ "\" ...")
                         putStrLn "Squares with no numbers are not marked"
+                        putStrLn ("Player " ++ p1 ++ " will be the \'X\', player " ++ p2 ++
+                                  " will the the \'O\'. Go!")
                         {-
                           This:
                            ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
@@ -139,13 +142,147 @@ newGame myData p1 p2 = do
                             ---------
                             7 | 8 | 9
                          -}
-                        putStrLn ("Player " ++ p1 ++ " will be the \'X\', player " ++ p2 ++
-                                  " will the the \'O\'. Go!")
                         -- turn 0 -> player's 1 turn
                         -- turn 1 -> player's 2 turn
-                        putStr "Press <enter> key to continue... "
-                        getChar
                         runGame myData initialBoard p1 p2 0
 
-runGame :: Players -> Table -> Name -> Name -> Int -> IO Players
-runGame myData board p1 p2 turn = menu myData
+runGame :: Players -> Table -> Name -> Name -> Turn -> IO Players
+runGame myData board p1 p2 turn = do
+                      putStrLn ("\n" ++ "                              " ++
+                        (show (board !! 0)) ++ " | " ++ (show (board !! 1)) ++ " | " ++ (show (board !! 2)) ++
+                        "\n                              ---------------\n                              " ++
+                        (show (board !! 3)) ++ " | " ++ (show (board !! 4)) ++ " | " ++ (show (board !! 5)) ++
+                        "\n                              ---------------\n                              " ++
+                        (show (board !! 6)) ++ " | " ++ (show (board !! 7)) ++ " | " ++ (show (board !! 8)) ++
+                        "\n")
+
+                      -- check if p1 is the winner
+                      if (winnerIsP1 board) then do
+                        putStrLn (p1 ++ " -> congrats bitch! You won!")
+
+                        -- save
+                        file2write <- openFile "data.txt" WriteMode
+                        hPutStrLn file2write (show (updateScore myData p1))
+                        hClose file2write
+
+                        -- update memory data
+                        file2read <- openFile "data.txt" ReadMode
+                        updatedData <- hGetLine file2read
+                        hClose file2read
+
+                        putStrLn "Press <enter> to continue..."
+                        getChar
+                        menu (read updatedData)
+
+                      else do
+                        -- check if p2 is the winner
+                        if (winnerIsP2 board) then do
+                          putStrLn (p2 ++ " -> congrats bitch! You won!")
+
+                          -- save
+                          file2write <- openFile "data.txt" WriteMode
+                          hPutStrLn file2write (show (updateScore myData p2))
+                          hClose file2write
+
+                          -- update memory data
+                          file2read <- openFile "data.txt" ReadMode
+                          updatedData <- hGetLine file2read
+                          hClose file2read
+
+                          putStrLn "Press <enter> to continue..."
+                          getChar
+                          menu (read updatedData)
+
+                        else do
+                          -- check if there was a tie
+                          -- tie happens when the intersection between the board
+                          -- and the string "123456789"
+                          if (length (intersect "123456789" board) == 0) then do
+                            -- tie
+                            putStrLn "Yo bitches, you got a tie! xD"
+                            putStrLn "Press <enter> to continue..."
+                            getChar
+                            menu myData
+                          else do
+                            -- keep playing bitch. Check who's turn is it
+                            if (turn == 0) then do
+                              putStr (p1 ++ " it is your turn. Which cell would you like to choose? ")
+                              op <- getChar
+                              getChar
+
+                              if not (elem op "123456789") then do
+                                putStrLn "Invalid choice. Try again ...(press <enter>, bitch!)"
+                                runGame myData board p1 p2 0 -- still p1's turn
+
+                              else do
+                                if not (elem op board) then do
+                                  putStrLn "Option already taken, please choose another one"
+                                  runGame myData board p1 p2 0 -- still p1's turn
+                                else do
+                                  -- choice is ok, update board and go to p2's
+                                  -- turn
+                                  runGame myData (updateBoard board turn op) p1 p2 1 -- now go for p2's turn
+
+                            else do -- turn != 0
+                              putStr (p2 ++ " it is your turn. Which cell would you like to choose? ")
+                              op <- getChar
+                              getChar
+
+                              if not (elem op "123456789") then do
+                                putStrLn "Invalid choice. Try again ...(press <enter>, bitch!)"
+                                runGame myData board p1 p2 1 -- still p2's turn
+
+                              else do
+                                if not (elem op board) then do
+                                  putStrLn "Option already taken, please choose another one"
+                                  runGame myData board p1 p2 1 -- still p2's turn
+                                else do
+                                  -- choice is ok, update board and go to p1's
+                                  -- turn
+                                  runGame myData (updateBoard board turn op) p1 p2 0 -- now go for p1's turn
+
+
+updateBoard :: Table -> Turn -> Char -> Table
+updateBoard (x:xs) turn e | ((x == e) && (turn == 0)) = (['X'] ++ xs)
+                          | ((x == e) && (turn == 1)) = (['O'] ++ xs)
+                          | otherwise = x:(updateBoard xs turn e)
+
+
+winnerIsP1 :: Table -> Bool
+winnerIsP1 board
+  -- rows
+  | (((board !! 0) == 'X') && ((board !! 1) == 'X') && ((board !! 2) == 'X')) = True
+  | (((board !! 3) == 'X') && ((board !! 4) == 'X') && ((board !! 5) == 'X')) = True
+  | (((board !! 6) == 'X') && ((board !! 7) == 'X') && ((board !! 8) == 'X')) = True
+  -- columns
+  | (((board !! 0) == 'X') && ((board !! 3) == 'X') && ((board !! 6) == 'X')) = True
+  | (((board !! 1) == 'X') && ((board !! 4) == 'X') && ((board !! 7) == 'X')) = True
+  | (((board !! 2) == 'X') && ((board !! 5) == 'X') && ((board !! 8) == 'X')) = True
+  -- diagonals
+  | (((board !! 0) == 'X') && ((board !! 4) == 'X') && ((board !! 8) == 'X')) = True
+  | (((board !! 2) == 'X') && ((board !! 4) == 'X') && ((board !! 6) == 'X')) = True
+  -- other
+  | otherwise = False
+
+winnerIsP2 :: Table -> Bool
+winnerIsP2 board
+  -- rows
+  | (((board !! 0) == 'O') && ((board !! 1) == 'O') && ((board !! 2) == 'O')) = True
+  | (((board !! 3) == 'O') && ((board !! 4) == 'O') && ((board !! 5) == 'O')) = True
+  | (((board !! 6) == 'O') && ((board !! 7) == 'O') && ((board !! 8) == 'O')) = True
+  -- columns
+  | (((board !! 0) == 'O') && ((board !! 3) == 'O') && ((board !! 6) == 'O')) = True
+  | (((board !! 1) == 'O') && ((board !! 4) == 'O') && ((board !! 7) == 'O')) = True
+  | (((board !! 2) == 'O') && ((board !! 5) == 'O') && ((board !! 8) == 'O')) = True
+  -- diagonals
+  | (((board !! 0) == 'O') && ((board !! 4) == 'O') && ((board !! 8) == 'O')) = True
+  | (((board !! 2) == 'O') && ((board !! 4) == 'O') && ((board !! 6) == 'O')) = True
+  -- otherwise
+  | otherwise = False
+
+-- updateScore myData p1
+updateScore :: Players -> Name -> Players
+updateScore ((Player name score): xs) winner
+  | (name == winner) = [(Player name (score + 1))] ++ xs
+  | otherwise = (Player name score):(updateScore xs winner)
+
